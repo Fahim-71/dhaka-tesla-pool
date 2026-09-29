@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler, routeNotFound } from './lib/errors.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { authRouter } from './modules/auth/auth.routes.js';
 
 export function createApp() {
   const app = express();
@@ -30,6 +31,7 @@ export function createApp() {
   );
 
   app.use('/api/health', healthRouter);
+  app.use('/api/auth', authRouter);
 
   app.use(routeNotFound);
   app.use(errorHandler);
