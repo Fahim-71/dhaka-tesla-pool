@@ -5,6 +5,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PassengerHomePage from './pages/passenger/PassengerHomePage';
+import PassengerHistoryPage from './pages/passenger/PassengerHistoryPage';
+import RequestDetailPage from './pages/passenger/RequestDetailPage';
 import DriverDashboardPage from './pages/driver/DriverDashboardPage';
 
 export default function App() {
@@ -31,6 +33,8 @@ export default function App() {
 
         <Route path="ride" element={<ProtectedRoute role="PASSENGER" />}>
           <Route index element={<PassengerHomePage />} />
+          <Route path="history" element={<PassengerHistoryPage />} />
+          <Route path="history/:id" element={<RequestDetailPage />} />
         </Route>
 
         <Route path="driver" element={<ProtectedRoute role="DRIVER" />}>
