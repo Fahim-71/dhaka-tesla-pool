@@ -1,0 +1,173 @@
+// Database schema for Dhaka Tesla Pool.
+// Table and column names are snake_case in Postgres (@@map / @map)
+// and camelCase in JavaScript.
+//
+// Rules Prisma cannot express (CHECK constraints, partial unique indexes)
+// are added by hand in the SQL migration - see prisma/migrations/.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PASSENGER
+  DRIVER
+}
+
+// The shared trip of one Tesla (the pool).
+enum RideStatus {
+  ACCEPTED
+  DRIVER_ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+// One passenger's booking.
+enum RequestStatus {
+  REQUESTED
+  MATCHED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  TESLAPAY
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String   @map("password_hash")
+  role         Role
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  vehicle  Vehicle?
+  requests RideRequest[]
+  events   RideEvent[]
+
+  @@map("users")
+}
+
+model Area {
+  id   String @id // slug, e.g. "banani", "gulshan-1"
+  name String @unique
+  lat  Float
+  lng  Float
+
+  pickupRequests      RideRequest[] @relation("RequestPickup")
+  destinationRequests RideRequest[] @relation("RequestDestination")
+  rides               Ride[]
+  vehicles            Vehicle[]
+
+  @@map("areas")
+}
+
+model Vehicle {
+  id            Int     @id @default(autoincrement())
+  driverId      Int     @unique @map("driver_id")
+  name          String
+  plateNumber   String  @unique @map("plate_number")
+  capacity      Int // CHECK 1..6 in the migration
+  isOnline      Boolean @default(false) @map("is_online")
+  currentAreaId String? @map("current_area_id")
+
+  driver      User  @relation(fields: [driverId], references: [id])
+  currentArea Area? @relation(fields: [currentAreaId], references: [id])
+  rides       Ride[]
+
+  @@map("vehicles")
+}
+
+model Ride {
+  id           Int        @id @default(autoincrement())
+  vehicleId    Int        @map("vehicle_id")
+  pickupAreaId String     @map("pickup_area_id")
+  // Copied from the vehicle when the ride is created, so editing the
+  // vehicle later can't change a ride that is already running.
+  capacity     Int
+  // Kept in the same transaction as the requests; CHECK 0..capacity.
+  seatsBooked  Int        @default(0) @map("seats_booked")
+  status       RideStatus @default(ACCEPTED)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  arrivedAt    DateTime?  @map("arrived_at") @db.Timestamptz(3)
+  startedAt    DateTime?  @map("started_at") @db.Timestamptz(3)
+  completedAt  DateTime?  @map("completed_at") @db.Timestamptz(3)
+  cancelledAt  DateTime?  @map("cancelled_at") @db.Timestamptz(3)
+
+  vehicle    Vehicle       @relation(fields: [vehicleId], references: [id])
+  pickupArea Area          @relation(fields: [pickupAreaId], references: [id])
+  requests   RideRequest[]
+  events     RideEvent[]
+
+  @@index([status, pickupAreaId])
+  @@index([vehicleId, createdAt])
+  @@map("rides")
+}
+
+model RideRequest {
+  id                  Int           @id @default(autoincrement())
+  passengerId         Int           @map("passenger_id")
+  // Pool membership: null while waiting, set when the request joins a ride.
+  rideId              Int?          @map("ride_id")
+  pickupAreaId        String        @map("pickup_area_id")
+  destinationAreaId   String        @map("destination_area_id")
+  seats               Int // CHECK 1..3
+  distanceM           Int           @map("distance_m")
+  paymentMethod       PaymentMethod @default(CASH) @map("payment_method")
+  status              RequestStatus @default(REQUESTED)
+  // Fare breakdown in paisa (1 taka = 100 paisa). Estimated as a solo ride
+  // when requested, recalculated and locked when the ride starts.
+  baseFarePaisa       Int           @map("base_fare_paisa")
+  distanceChargePaisa Int           @map("distance_charge_paisa")
+  poolDiscountPaisa   Int           @default(0) @map("pool_discount_paisa")
+  farePaisa           Int           @map("fare_paisa")
+  cancelReason        String?       @map("cancel_reason")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  matchedAt           DateTime?     @map("matched_at") @db.Timestamptz(3)
+  completedAt         DateTime?     @map("completed_at") @db.Timestamptz(3)
+  cancelledAt         DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  paidAt              DateTime?     @map("paid_at") @db.Timestamptz(3)
+
+  passenger       User        @relation(fields: [passengerId], references: [id])
+  ride            Ride?       @relation(fields: [rideId], references: [id], onDelete: Restrict)
+  pickupArea      Area        @relation("RequestPickup", fields: [pickupAreaId], references: [id])
+  destinationArea Area        @relation("RequestDestination", fields: [destinationAreaId], references: [id])
+  events          RideEvent[]
+
+  @@index([status, pickupAreaId])
+  @@index([passengerId, createdAt])
+  @@index([rideId])
+  @@map("ride_requests")
+}
+
+// Append-only audit log: who changed what, and when.
+model RideEvent {
+  id         BigInt   @id @default(autoincrement())
+  rideId     Int?     @map("ride_id")
+  requestId  Int?     @map("request_id")
+  actorId    Int?     @map("actor_id") // null = done by the system
+  type       String
+  fromStatus String?  @map("from_status")
+  toStatus   String?  @map("to_status")
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride    Ride?        @relation(fields: [rideId], references: [id], onDelete: Restrict)
+  request RideRequest? @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  actor   User?        @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([rideId])
+  @@index([requestId])
+  @@map("ride_events")
+}
