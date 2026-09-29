@@ -491,3 +491,226 @@ fieldset.field legend {
   font-size: 0.8rem;
   color: var(--color-muted);
 }
+
+/* ---------- Ride: quote, progress, Tesla, fare ---------- */
+
+.quote {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 0.25rem 1rem;
+  justify-content: space-between;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-small);
+  padding: 0.8rem 0.9rem;
+}
+.quote--compact {
+  grid-template-columns: repeat(2, auto);
+  justify-content: start;
+  column-gap: 2rem;
+}
+.quote div {
+  display: flex;
+  flex-direction: column;
+}
+.quote__label {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+.quote__price {
+  font-size: 1.3rem;
+  color: var(--color-primary-dark);
+}
+.quote__note {
+  grid-column: 1 / -1;
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+.steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 0 0 1.1rem;
+  padding: 0;
+}
+.steps__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+.steps__item::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: -50%;
+  width: 100%;
+  height: 3px;
+  background: var(--color-border);
+}
+.steps__item:first-child::before {
+  display: none;
+}
+.steps__dot {
+  position: relative;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 3px solid var(--color-border);
+}
+.steps__item--done::before,
+.steps__item--current::before {
+  background: var(--color-primary);
+}
+.steps__item--done .steps__dot {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.steps__item--current .steps__dot {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-primary-soft);
+}
+.steps__item--current {
+  color: var(--color-text);
+  font-weight: 700;
+}
+@media (min-width: 520px) {
+  .steps__item {
+    font-size: 0.82rem;
+  }
+}
+
+.tesla {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  padding: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  margin-bottom: 1rem;
+}
+.tesla p {
+  margin: 0.1rem 0 0;
+}
+.tesla__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  font-size: 1.2rem;
+}
+.pool-note {
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.fare {
+  margin: 0;
+}
+.fare div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+.fare dt {
+  color: var(--color-muted);
+}
+.fare dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.fare__discount dd {
+  color: #1f7a34;
+}
+.fare__total {
+  border-bottom: 0 !important;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.fare__total dt {
+  color: var(--color-text);
+}
+
+.how ol {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.how li {
+  margin-bottom: 0.45rem;
+}
+
+/* ---------- Lists and timeline ---------- */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.list__item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+a.list__item:hover {
+  border-color: var(--color-primary);
+}
+.list__item > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+.list__end {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.timeline__item {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  border-left: 2px solid var(--color-primary-soft);
+  padding-left: 0.8rem;
+  position: relative;
+}
+.timeline__item::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 0.8rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+.timeline__item time {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
