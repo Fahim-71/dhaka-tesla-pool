@@ -1,0 +1,52 @@
+# docker compose up --build
+#   web  -> http://localhost:8080  (React app, nginx; proxies /api to the api container)
+#   api  -> http://localhost:4000  (Express; migrates + seeds the story cast on start)
+#   db   -> Postgres 16, data kept in the "pgdata" volume
+#
+# Values come from .env (copy .env.example). The defaults below only exist so a
+# first `docker compose up` works on an evaluator's machine; they are not secrets.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-teslapool}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-teslapool}
+      POSTGRES_DB: ${POSTGRES_DB:-teslapool}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-teslapool}:${POSTGRES_PASSWORD:-teslapool}@db:5432/${POSTGRES_DB:-teslapool}
+      JWT_SECRET: ${JWT_SECRET:-local-docker-only-secret-change-me-in-env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '${API_PORT:-4000}:4000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
