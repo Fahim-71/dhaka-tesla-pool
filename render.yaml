@@ -1,0 +1,28 @@
+# Render Blueprint for the API (free plan).
+# Database: a free Neon Postgres - paste its connection string as DATABASE_URL.
+# The frontend is deployed separately on Vercel (see web/vercel.json).
+services:
+  - type: web
+    name: dhaka-tesla-pool-api
+    runtime: node
+    plan: free
+    rootDir: api
+    buildCommand: npm ci && npx prisma generate
+    # Migrations and the idempotent seed run on every start, like in Docker.
+    startCommand: npx prisma migrate deploy && node prisma/seed.js && node src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: '20'
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Neon connection string, with ?sslmode=require
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: CORS_ORIGIN
+        sync: false # the Vercel URL, e.g. https://dhaka-tesla-pool.vercel.app
+      - key: LOG_LEVEL
+        value: info

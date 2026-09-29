@@ -15,7 +15,9 @@ export default function StatusSteps({ status }) {
   return (
     <ol className="steps" aria-label="Ride progress">
       {STEPS.map((step, index) => {
-        const state = index < current ? 'done' : index === current ? 'current' : 'todo';
+        // A finished ride has no "current" step - every step is done.
+        const finished = status === 'COMPLETED';
+        const state = index < current || finished ? 'done' : index === current ? 'current' : 'todo';
         return (
           <li key={step.key} className={`steps__item steps__item--${state}`} aria-current={state === 'current' ? 'step' : undefined}>
             <span className="steps__dot" aria-hidden="true" />
