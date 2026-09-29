@@ -42,6 +42,12 @@ export const RIDE_STATUS = {
   CANCELLED: { label: 'Cancelled', tone: 'cancelled' },
 };
 
+const RIDE_EVENT_LABELS = {
+  DRIVER_ARRIVED: 'Driver arrived at the pickup',
+  STARTED: 'Trip started',
+  COMPLETED: 'Trip completed - paid',
+};
+
 // Human wording for the audit log entries.
 export function describeEvent(event) {
   const via = event.details?.via;
@@ -65,7 +71,7 @@ export function describeEvent(event) {
     case 'RIDE_CANCELLED':
       return event.details?.reason === 'ALL_PASSENGERS_CANCELLED' ? 'Ride cancelled - no passengers left' : 'Ride cancelled';
     case 'RIDE_STATUS_CHANGED':
-      return RIDE_STATUS[event.toStatus]?.label ?? event.toStatus;
+      return RIDE_EVENT_LABELS[event.toStatus] ?? event.toStatus;
     default:
       return event.type;
   }

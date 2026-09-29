@@ -714,3 +714,77 @@ a.list__item:hover {
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Driver ---------- */
+
+.availability {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+.availability .field {
+  flex: 1 1 180px;
+}
+
+.seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.7rem 0.5rem;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-small);
+  color: var(--color-muted);
+}
+.seat--taken {
+  border-style: solid;
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+}
+.seat__number {
+  font-size: 0.75rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.5rem 0.45rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.table th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+}
+.table tfoot td {
+  font-weight: 700;
+  border-bottom: 0;
+}
+.table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.block {
+  display: block;
+}
+.reason {
+  color: var(--color-waiting);
+}

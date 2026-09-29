@@ -43,6 +43,15 @@ describe('the Banani rush-hour story', () => {
     expect(JSON.stringify(nusratView)).not.toContain('Rafiq');
     expect(JSON.stringify(nusratView)).not.toContain('7800');
 
+    // Her timeline shows the ride's progress, but nothing about Rafiq's booking.
+    expect(nusratView.events.map((e) => e.type)).toEqual([
+      'REQUEST_CREATED',
+      'REQUEST_MATCHED',
+      'RIDE_STATUS_CHANGED', // driver arrived
+      'FARE_LOCKED',
+      'RIDE_STATUS_CHANGED', // started
+    ]);
+
     const rafiqView = await viewOf('rafiq', rafiq.id);
     expect(rafiqView.fare).toMatchObject({ farePaisa: 7800, isFinal: true });
     expect(JSON.stringify(rafiqView)).not.toContain('Nusrat');

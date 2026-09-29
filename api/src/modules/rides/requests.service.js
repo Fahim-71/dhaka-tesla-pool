@@ -55,14 +55,36 @@ export async function createRequest(passengerId, { pickupAreaId, destinationArea
 export async function getRequestForPassenger(passengerId, requestId) {
   const request = await prisma.rideRequest.findUnique({
     where: { id: requestId },
-    include: { ...passengerRequestInclude, events: { orderBy: { id: 'asc' } } },
+    include: passengerRequestInclude,
   });
   // Someone else's request looks exactly like a missing one (404, not 403),
   // so ids can't be probed to discover other people's rides.
   if (!request || request.passengerId !== passengerId) {
     throw notFound('Ride request not found');
   }
-  return { ...toPassengerView(request), events: request.events.map(toEventView) };
+  return { ...toPassengerView(request), events: (await passengerEvents(request)).map(toEventView) };
+}
+
+/**
+ * The passenger's timeline: events about their own request, plus the ride's
+ * status changes (arrived, started, completed) while they were in it.
+ * Never events about the other passengers' requests.
+ */
+function passengerEvents(request) {
+  const rideStatusEvents = request.rideId
+    ? [
+        {
+          rideId: request.rideId,
+          requestId: null,
+          type: { in: ['RIDE_STATUS_CHANGED', 'RIDE_CANCELLED'] },
+          ...(request.cancelledAt && { createdAt: { lte: request.cancelledAt } }),
+        },
+      ]
+    : [];
+  return prisma.rideEvent.findMany({
+    where: { OR: [{ requestId: request.id }, ...rideStatusEvents] },
+    orderBy: { id: 'asc' },
+  });
 }
 
 export async function getActiveRequest(passengerId) {
