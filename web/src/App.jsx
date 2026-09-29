@@ -8,6 +8,7 @@ import PassengerHomePage from './pages/passenger/PassengerHomePage';
 import PassengerHistoryPage from './pages/passenger/PassengerHistoryPage';
 import RequestDetailPage from './pages/passenger/RequestDetailPage';
 import DriverDashboardPage from './pages/driver/DriverDashboardPage';
+import DriverHistoryPage from './pages/driver/DriverHistoryPage';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
 
         <Route path="driver" element={<ProtectedRoute role="DRIVER" />}>
           <Route index element={<DriverDashboardPage />} />
+          <Route path="history" element={<DriverHistoryPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
