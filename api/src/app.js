@@ -9,6 +9,7 @@ import { healthRouter } from './modules/health/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { areasRouter, faresRouter } from './modules/areas/areas.routes.js';
 import { requestsRouter } from './modules/rides/requests.routes.js';
+import { driverRouter, ridesRouter } from './modules/driver/driver.routes.js';
 
 export function createApp() {
   const app = express();
@@ -37,6 +38,8 @@ export function createApp() {
   app.use('/api/areas', areasRouter);
   app.use('/api/fares', faresRouter);
   app.use('/api/ride-requests', requestsRouter);
+  app.use('/api/driver', driverRouter);
+  app.use('/api/rides', ridesRouter);
 
   app.use(routeNotFound);
   app.use(errorHandler);
