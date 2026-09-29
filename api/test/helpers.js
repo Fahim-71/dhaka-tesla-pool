@@ -25,3 +25,30 @@ export async function tokenFor(who) {
 }
 
 export { prisma, CAST, DEMO_PASSWORD };
+
+// Story helpers, so tests read like the brief.
+export async function goOnline(areaId = 'banani') {
+  const res = await api()
+    .patch('/api/driver/availability')
+    .set('Authorization', await tokenFor('jashim'))
+    .send({ online: true, areaId });
+  if (res.status !== 200) throw new Error(`Jashim could not go online: ${res.status}`);
+  return res.body;
+}
+
+export async function requestRide(who, trip) {
+  return api().post('/api/ride-requests').set('Authorization', await tokenFor(who)).send(trip);
+}
+
+export async function accept(requestId) {
+  return api().post(`/api/driver/requests/${requestId}/accept`).set('Authorization', await tokenFor('jashim'));
+}
+
+export async function rideAction(rideId, action, who = 'jashim') {
+  return api().post(`/api/rides/${rideId}/${action}`).set('Authorization', await tokenFor(who));
+}
+
+export const TRIPS = {
+  nusrat: { pickupAreaId: 'banani', destinationAreaId: 'mohakhali', seats: 1 },
+  rafiq: { pickupAreaId: 'banani', destinationAreaId: 'gulshan-1', seats: 1 },
+};
