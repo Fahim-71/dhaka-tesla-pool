@@ -8,6 +8,7 @@ import { errorHandler, routeNotFound } from './lib/errors.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { areasRouter, faresRouter } from './modules/areas/areas.routes.js';
+import { requestsRouter } from './modules/rides/requests.routes.js';
 
 export function createApp() {
   const app = express();
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/areas', areasRouter);
   app.use('/api/fares', faresRouter);
+  app.use('/api/ride-requests', requestsRouter);
 
   app.use(routeNotFound);
   app.use(errorHandler);
