@@ -35,8 +35,8 @@ flowchart LR
 
 | Concern | MVP today | At scale | Why / when |
 | --- | --- | --- | --- |
-| **Horizontal scaling** | One API process | Stateless API behind a load balancer, autoscaled on CPU/latency | The API already keeps no in-memory state (JWT auth, all state in Postgres), so this is "run more copies" |
-| **Load balancing** | Render's router | L7 load balancer with health checks on `/api/health` | Health check already exists |
+| **Horizontal scaling** | One API (serverless instances scale automatically, but share one database) | Stateless API behind a load balancer, autoscaled on CPU/latency | The API already keeps no in-memory state (JWT auth, all state in Postgres), so this is "run more copies" |
+| **Load balancing** | Vercel's edge network | L7 load balancer with health checks on `/api/health` | Health check already exists |
 | **Database** | One Postgres | Primary for writes + read replicas for history/driver dashboards; connection pooling (PgBouncer) | Reads (history, polling) dominate writes. Replicas lag, so anything that decides seats must read the primary |
 | **Indexing** | Composite indexes on status + area | Same, plus partitioning `ride_events` by month; archive completed rides | `ride_events` grows fastest and is append-only |
 | **Geospatial search** | Fixed areas, straight-line distance | Driver locations in a Redis geo set (`GEOSEARCH` radius queries); PostGIS for stored routes; real road distance from OSRM | Areas become too coarse once there are thousands of drivers per area |
@@ -50,7 +50,7 @@ flowchart LR
 | **Retries / failure** | Transaction rolls back; client sees an error | Retry deadlocks/serialisation failures with jitter; circuit breakers around payment/map providers; outbox guarantees events are eventually published | Partial failure becomes normal with more services |
 | **Observability** | Structured JSON logs with request ids | Centralised logs, metrics (p95 latency, match rate, time-to-match, overbooking attempts refused), tracing across API -> matching -> DB; alerts on error rate | You can't fix what you can't see |
 | **Security** | JWT, bcrypt, helmet, CORS allow-list, validation, rate limit | Short-lived access + refresh tokens in httpOnly cookies, secrets in a manager, WAF, audit on admin actions, PII (phone numbers) encrypted and masked between riders | More users = more attackers and more regulation |
-| **Deployment** | Render + Vercel from git | Containers on a managed orchestrator (ECS / Cloud Run), blue-green or canary releases, migrations that are backward compatible (expand -> migrate -> contract) | Zero-downtime deploys while rides are in progress |
+| **Deployment** | Vercel CLI + Neon, migrations in the build | Containers on a managed orchestrator (ECS / Cloud Run), blue-green or canary releases, migrations that are backward compatible (expand -> migrate -> contract) | Zero-downtime deploys while rides are in progress |
 
 ## What I would *not* change
 
