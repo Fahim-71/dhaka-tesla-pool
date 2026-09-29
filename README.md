@@ -9,12 +9,13 @@ everyone whose trips fit together; each passenger pays their own fair, pooled pr
 | | |
 | --- | --- |
 | 🎥 **Demo video (6 min)** | _add Loom link_ |
-| 🌐 **Live app** | _add Vercel URL_ (API: _add Render URL_) |
+| 🌐 **Live app** | https://dhaka-tesla-pool-nine-bay.vercel.app (API: https://dhaka-tesla-pool-api-gray.vercel.app/api/health) |
 | 🔑 **Demo logins** | `nusrat@teslapool.test`, `rafiq@teslapool.test`, `shirin@teslapool.test` (passengers), `jashim@teslapool.test` (driver) - password `teslapool123`, or use the one-click buttons on the sign-in page |
 | 🏷️ **Version** | `v1.0.0` (branch `release/v1.0.0`) |
 
-> The free Render API sleeps when idle. The first request after a while can take ~50 s;
-> the app shows a "waking up the server" banner while it waits.
+> Free tiers sleep when idle: the first request after a quiet spell can take a few seconds
+> while the serverless API and the Neon database wake up. The app shows a "waking up the
+> server" banner if a request is slow.
 
 ---
 
@@ -216,11 +217,11 @@ Mandated: React (frontend) and Node.js (backend). Everything else was a choice.
 | **PostgreSQL 16** | MySQL, SQLite, MongoDB | Pooling is relational and transactional: seats, memberships and money need transactions, row locks, CHECK constraints and partial unique indexes. Postgres has all of them; SQLite locks the whole database on write, MongoDB makes multi-document invariants harder. | Nothing soon. Geospatial matching -> add PostGIS rather than switch. |
 | **Prisma 6** | Knex, Drizzle, raw `pg` | Readable schema that doubles as documentation, typed queries, plain-SQL migrations I can edit (CHECK constraints and partial indexes are hand-written). Raw SQL is still available for `FOR UPDATE`. | Mostly raw SQL for locking/geospatial queries -> Kysely or plain `pg`. |
 | **zod** | Joi, express-validator | One schema validates and converts input (strings -> numbers, trimming) and yields per-field messages. Also used to validate env vars at startup. | - |
-| **JWT (Bearer) + bcrypt** | Sessions + cookies, Auth0/Clerk | Stateless auth works across the Vercel and Render domains without third-party cookies; bcrypt is the standard password hash. Drivers and passengers share one login with a `role` claim. | Rich user content (XSS risk) or refresh-token needs -> httpOnly cookie via a same-origin proxy; SSO needs -> an auth provider. |
+| **JWT (Bearer) + bcrypt** | Sessions + cookies, Auth0/Clerk | Stateless auth works across the two Vercel domains without third-party cookies; bcrypt is the standard password hash. Drivers and passengers share one login with a `role` claim. | Rich user content (XSS risk) or refresh-token needs -> httpOnly cookie via a same-origin proxy; SSO needs -> an auth provider. |
 | **Vitest + Supertest on a real Postgres** | Jest, mocking Prisma | The risky parts (locks, constraints, transactions) only exist in a real database, so tests use one - wiped between tests. Vitest runs ES modules without config. | Slow suite -> per-test transactions/rollbacks or Testcontainers. |
 | **pino** | winston, console.log | Fast structured JSON logs with a request id per request, readable in dev via pino-pretty. | - |
 | **Polling (4 s)** | Websockets, SSE | Status changes a few times per ride; polling needs no extra infrastructure and is trivial to reason about. | Many concurrent users or sub-second updates -> SSE / websockets. |
-| **Vercel (web) + Render (API) + Neon (DB)** | Railway, Fly.io, Render Postgres | All free with no card. Neon's free Postgres doesn't expire (Render's free Postgres is deleted after 30 days). | Paid plan / one provider for everything; no cold starts. |
+| **Vercel (web + API) + Neon (DB)** | Render, Railway, Fly.io; Render Postgres | All free with no card. The Express app runs unchanged as a Vercel serverless function (one small entry file), which wakes in seconds instead of Render's ~50 s. Neon's free Postgres doesn't expire (Render's is deleted after 30 days). `render.yaml` is kept as an alternative for running the API as a long-running server. | Websockets or background jobs (need a long-running process) -> Render / Fly.io; heavy traffic -> a paid plan with pooled connections. |
 | **Docker Compose** | - (mandated) | nginx serves the SPA and proxies `/api`, so the browser sees one origin (no CORS) - same shape as production. | - |
 
 ## 8. Project structure
@@ -239,7 +240,9 @@ dhaka-tesla-pool/
 │   │   ├── lib/                  prisma client, logger, errors
 │   │   ├── middleware/           auth (JWT, roles), validation
 │   │   └── modules/              auth, areas, rides (requests, pool, transitions), driver
+│   ├── api/index.js              Vercel serverless entry (exports the Express app)
 │   ├── test/                     unit + API tests (real Postgres)
+│   ├── vercel.json               routes every path to the function
 │   └── Dockerfile
 ├── web/                          React app
 │   ├── src/
@@ -253,7 +256,7 @@ dhaka-tesla-pool/
 │   └── vercel.json               SPA rewrites on Vercel
 ├── docs/                         architecture, domain rules, API, scaling, screenshots
 ├── docker-compose.yml
-├── render.yaml                   Render blueprint for the API
+├── render.yaml                   alternative: API on Render as a long-running server
 ├── .env.example
 └── .github/workflows/ci.yml
 ```
@@ -361,17 +364,22 @@ Frontend: `npm run lint` and `npm run build` in `web/` (both run in CI).
 
 ## 11. Deployment
 
+Live: **https://dhaka-tesla-pool-nine-bay.vercel.app** - deployed from `release/v1.0.0`.
 Everything is on free tiers; nothing is paid.
 
 | Part | Where | How |
 | --- | --- | --- |
-| Web | **Vercel** | Import the repo, root directory `web`, framework Vite, env `VITE_API_URL=<Render URL>`. `vercel.json` rewrites every path to `index.html`. |
-| API | **Render** (free web service) | New -> Blueprint -> this repo ([render.yaml](render.yaml)). Set `DATABASE_URL` (Neon) and `CORS_ORIGIN` (Vercel URL); `JWT_SECRET` is generated. Start runs migrations + seed. |
-| DB | **Neon** (free Postgres) | Create a project, copy the connection string (with `?sslmode=require`). |
+| Web | **Vercel** project `dhaka-tesla-pool` | Root directory `web` (Vite). Env: `VITE_API_URL=https://dhaka-tesla-pool-api-gray.vercel.app`. `web/vercel.json` rewrites every path to `index.html`. |
+| API | **Vercel** project `dhaka-tesla-pool-api` | Root directory `api`. [`api/api/index.js`](api/api/index.js) exports the same Express app as a serverless function; [`api/vercel.json`](api/vercel.json) routes every path to it. The build runs `prisma generate && prisma migrate deploy`. Env: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN` (the web URL), `NODE_ENV=production` - stored as Vercel secrets. |
+| DB | **Neon** free Postgres | Direct (non-pooled) connection string with `sslmode=require`. Seeded once with `npm run db:seed`. |
 
-Constraints of the free tier: Render sleeps after 15 minutes idle (first request ~50 s), and
-has no pre-deploy hook, so migrations run in the start command. If a free backend host is not
-available, `docker compose up` above is the reproducible deployment.
+To redeploy from a checkout: `cd api && vercel deploy --prod`, then `cd web && vercel deploy --prod`.
+
+**Serverless trade-offs**: each function instance holds its own small connection pool
+(fine at this scale; at higher load use Neon's pooled endpoint), and the login rate limiter
+is per instance rather than global. **Alternative**: [render.yaml](render.yaml) runs the API
+as a normal long-running server on Render (migrations + seed in the start command); and
+`docker compose up` above is the fully reproducible deployment.
 
 ## 12. API overview
 
@@ -418,7 +426,7 @@ are `409` with a stable `code` the UI can react to.
 - Polling, not push; a driver sees a new co-rider within ~4 s.
 - Waiting requests are matched when *they* are created or accepted, not re-scanned when a new ride opens (the driver's feed shows which ones fit).
 - No refresh tokens; sessions last 8 hours.
-- The free API host cold-starts.
+- Free tiers sleep when idle, so the first request can be slow; the login rate limiter is per serverless instance.
 - `npm audit` reports advisories in Prisma CLI tooling dependencies (not in the request path).
 
 **Next improvements**
@@ -455,7 +463,7 @@ change any part of it.
 - **Claude Code (Anthropic)** - the main tool, used heavily. From the brief it drafted the
   architecture, schema and domain rules, wrote most of the implementation, tests and docs,
   and ran the test suite and a browser walkthrough of the story. I chose the stack and hosting
-  (React + Vite over Next.js; Vercel + Render + Neon).
+  (React + Vite over Next.js; free hosting on Vercel and Neon).
 - Official documentation (Prisma, Express 5, PostgreSQL explicit locking, React Router) to
   check details.
 

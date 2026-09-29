@@ -1,8 +1,8 @@
 // Small wrapper around fetch for talking to the API.
 // - adds the JSON headers and the Bearer token
 // - turns error responses into an ApiError with the API's code + message
-// - tells the UI when a request is slow (the free Render server sleeps and
-//   takes ~50 s to wake up), so we can show a friendly banner
+// - tells the UI when a request is slow (free-tier hosting sleeps when idle and
+//   can take a while to wake up), so we can show a friendly banner
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const TOKEN_KEY = 'dtp.token';

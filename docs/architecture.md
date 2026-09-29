@@ -37,12 +37,13 @@ flowchart LR
         N["web<br/>nginx: static SPA<br/>+ proxy /api"] --> AP["api<br/>Express :4000"] --> PG[("db<br/>postgres:16")]
     end
     subgraph Cloud["Free tier"]
-        V["Vercel<br/>static SPA"] --> R["Render<br/>Express API"] --> NE[("Neon<br/>Postgres")]
+        V["Vercel<br/>static SPA"] --> R["Vercel serverless function<br/>same Express app"] --> NE[("Neon<br/>Postgres")]
     end
 ```
 
-The same `api` image runs migrations and the (idempotent) seed on start, so a fresh
-database is always usable.
+In Docker, the `api` image runs migrations and the (idempotent) seed on start, so a fresh
+database is always usable. On Vercel, the same Express app is exported from
+`api/api/index.js` as a serverless function and migrations run during the build.
 
 ## 3. API layering
 
@@ -214,6 +215,6 @@ rather than by row locks. See [scaling.md](scaling.md).
 | Decision | Why | What would change it |
 | --- | --- | --- |
 | Polling every 4 s instead of websockets | No extra infrastructure; statuses change a few times per ride | Hundreds of concurrent riders per driver, or sub-second updates needed -> Server-Sent Events / websockets |
-| JWT in `localStorage`, sent as a Bearer header | Works across the Vercel and Render domains without third-party cookies | Any rich user-generated content (XSS risk) -> httpOnly cookie behind a same-origin proxy |
+| JWT in `localStorage`, sent as a Bearer header | Works across the two Vercel domains (web and API) without third-party cookies | Any rich user-generated content (XSS risk) -> httpOnly cookie behind a same-origin proxy |
 | Straight-line distances between area centres | The brief says not to fight map APIs; distances are reproducible by hand | Real routing -> OSRM / a maps API, storing the route distance on the request |
 | Integer IDs | Simple, readable in demos and logs | Public, enumerable IDs become a concern -> UUIDs |
