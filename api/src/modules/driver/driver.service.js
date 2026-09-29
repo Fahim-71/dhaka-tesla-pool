@@ -2,7 +2,9 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { ACTIVE_RIDE_STATUSES } from '../../domain/lifecycle.js';
+import { POOL_FIT_MESSAGES, checkPoolFit } from '../../domain/matching.js';
 import { lockRequest, recordEvent } from '../rides/db-helpers.js';
+import { addRequestToRide } from '../rides/pool.service.js';
 import { driverRideInclude, toDriverRideView } from '../rides/views.js';
 
 const isUniqueViolation = (err) => err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
@@ -60,18 +62,35 @@ export async function setAvailability(driverId, { online, areaId }) {
  * The requests Jashim can accept: waiting, picking up in the area he is in,
  * oldest first (they have waited longest). Empty while he is offline.
  * Passengers only see their own data; the driver sees name + trip so he
- * knows who to pick up.
+ * knows who to pick up. If he already has an open ride, each request says
+ * whether it fits (poolFit) and, if not, why.
  */
 export async function listWaitingRequests(driverId) {
   const vehicle = await getVehicle(driverId);
   if (!vehicle.isOnline || !vehicle.currentAreaId) return [];
 
-  const requests = await prisma.rideRequest.findMany({
-    where: { status: 'REQUESTED', pickupAreaId: vehicle.currentAreaId, seats: { lte: vehicle.capacity } },
-    orderBy: { createdAt: 'asc' },
-    take: 20,
-    include: { passenger: true, pickupArea: true, destinationArea: true },
-  });
+  const [requests, activeRide] = await Promise.all([
+    prisma.rideRequest.findMany({
+      where: { status: 'REQUESTED', pickupAreaId: vehicle.currentAreaId, seats: { lte: vehicle.capacity } },
+      orderBy: { createdAt: 'asc' },
+      take: 20,
+      include: { passenger: true, pickupArea: true, destinationArea: true },
+    }),
+    prisma.ride.findFirst({
+      where: { vehicleId: vehicle.id, status: { in: ACTIVE_RIDE_STATUSES } },
+      include: { requests: { where: { status: 'MATCHED' }, include: { destinationArea: true } } },
+    }),
+  ]);
+
+  const poolFitOf = (r) => {
+    if (!activeRide) return { ok: true, joinsRide: false };
+    const fit = checkPoolFit({
+      ride: activeRide,
+      members: activeRide.requests.map((m) => m.destinationArea),
+      request: { pickupAreaId: r.pickupAreaId, seats: r.seats, destination: r.destinationArea },
+    });
+    return { ...fit, joinsRide: true, message: fit.ok ? undefined : POOL_FIT_MESSAGES[fit.reason] };
+  };
 
   return requests.map((r) => ({
     id: r.id,
@@ -81,13 +100,16 @@ export async function listWaitingRequests(driverId) {
     seats: r.seats,
     distanceM: r.distanceM,
     estimatedFarePaisa: r.farePaisa,
+    poolFit: poolFitOf(r),
     createdAt: r.createdAt,
   }));
 }
 
 /**
- * Jashim accepts a waiting request. This creates a new ride (pool) for Bullet
- * with the passenger in it.
+ * Jashim accepts a waiting request.
+ *  - No active ride: a new ride (pool) is created for Bullet with the passenger in it.
+ *  - Open ride (not started): the passenger is added to it, if they fit the
+ *    matching rule - through the same locked seat claim as automatic matching.
  */
 export async function acceptRequest(driverId, requestId) {
   try {
@@ -96,8 +118,23 @@ export async function acceptRequest(driverId, requestId) {
       if (!vehicle.isOnline) {
         throw conflict('DRIVER_OFFLINE', 'Go online before accepting rides');
       }
-      if (await findActiveRide(vehicle.id, tx)) {
-        throw conflict('ACTIVE_RIDE', 'Finish or cancel your current ride first');
+
+      const activeRide = await findActiveRide(vehicle.id, tx);
+      if (activeRide) {
+        if (activeRide.status === 'STARTED') {
+          throw conflict('RIDE_ALREADY_STARTED', 'Finish your current ride before accepting new passengers');
+        }
+        const result = await addRequestToRide(tx, {
+          rideId: activeRide.id,
+          requestId,
+          actorId: driverId,
+          via: 'DRIVER_ADDED',
+        });
+        if (!result.ok) {
+          const code = result.reason === 'REQUEST_NOT_AVAILABLE' ? 'REQUEST_NOT_AVAILABLE' : 'DOES_NOT_FIT_POOL';
+          throw conflict(code, POOL_FIT_MESSAGES[result.reason], { reason: result.reason });
+        }
+        return;
       }
 
       await lockRequest(tx, requestId);

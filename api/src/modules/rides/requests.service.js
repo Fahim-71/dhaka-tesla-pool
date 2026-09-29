@@ -6,12 +6,15 @@ import { ACTIVE_REQUEST_STATUSES, OPEN_RIDE_STATUSES, assertRequestTransition } 
 import { resolveTrip } from '../areas/areas.service.js';
 import { lockRequest, lockRide, recordEvent } from './db-helpers.js';
 import { passengerRequestInclude, toEventView, toPassengerView } from './views.js';
+import { autoMatch } from './pool.service.js';
 
 const isUniqueViolation = (err) => err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 
 /**
- * Nusrat asks for a ride. The request starts as REQUESTED (waiting) with the
- * solo fare as its estimate.
+ * Nusrat asks for a ride. The request is created as REQUESTED with the solo
+ * fare as its estimate, then - in the same transaction - we try to place it in
+ * an open pool (Rafiq joining Nusrat in Bullet). If nothing fits, it waits in
+ * the driver feed.
  */
 export async function createRequest(passengerId, { pickupAreaId, destinationAreaId, seats, paymentMethod }) {
   try {
@@ -35,6 +38,7 @@ export async function createRequest(passengerId, { pickupAreaId, destinationArea
         toStatus: 'REQUESTED',
         details: { pickupAreaId, destinationAreaId, seats, distanceM },
       });
+      await autoMatch(tx, request);
       return request.id;
     });
     return getRequestForPassenger(passengerId, requestId);
